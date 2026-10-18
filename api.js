@@ -68,46 +68,23 @@ export class ApiClient {
       return this.fetchMockTelemetry();
     }
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), CONFIG.API_TIMEOUT_MS);
-
     try {
-      // GAS 302 Redirect 및 CORS 안전 추적을 위해 mode: 'cors', cache: 'no-cache' 적용
       const response = await fetch(`${this.gasUrl}?action=getTallies&t=${Date.now()}`, {
         method: 'GET',
-        mode: 'cors',
-        redirect: 'follow',
-        cache: 'no-cache',
-        signal: controller.signal
+        redirect: 'follow'
       });
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error(`HTTP Error ${response.status}`);
-      }
-
-      const data = await response.json();
-      return data;
+      if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
+      return await response.json();
     } catch (err) {
-      clearTimeout(timeoutId);
-      console.warn('GAS fetch telemetry failed, falling back to cached state:', err);
+      console.warn('GAS fetch telemetry failed:', err);
       throw err;
     }
   }
 
-  /**
-   * Submits a vote to GAS Web App or Mock Simulator
-   * @param {string} menuId 
-   * @param {string} requestId UUIDv4
-   * @returns {Promise<Object>}
-   */
   async submitVote(menuId, requestId) {
     if (!this.gasUrl || this.isMockMode) {
       return this.submitMockVote(menuId, requestId);
     }
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), CONFIG.API_TIMEOUT_MS);
 
     try {
       const payload = {
@@ -117,32 +94,22 @@ export class ApiClient {
         clientTimestamp: Date.now()
       };
 
-      // text/plain 방식으로 전송하여 브라우저 CORS Preflight(OPTIONS) 블로킹을 완벽 회피
       const response = await fetch(this.gasUrl, {
         method: 'POST',
-        mode: 'cors',
         redirect: 'follow',
         headers: {
           'Content-Type': 'text/plain;charset=utf-8'
         },
-        body: JSON.stringify(payload),
-        signal: controller.signal
+        body: JSON.stringify(payload)
       });
 
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: Vote Submission Failed`);
-      }
-
+      if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
       const result = await response.json();
       if (result.status !== 'success') {
         throw new Error(result.message || 'Server increment failed');
       }
-
       return result;
     } catch (err) {
-      clearTimeout(timeoutId);
       throw err;
     }
   }
