@@ -72,11 +72,12 @@ export class ApiClient {
     const timeoutId = setTimeout(() => controller.abort(), CONFIG.API_TIMEOUT_MS);
 
     try {
-      // GAS 리다이렉트 및 CORS 에러 방지를 위해 mode와 redirect 설정 적용
+      // GAS 302 Redirect 및 CORS 안전 추적을 위해 mode: 'cors', cache: 'no-cache' 적용
       const response = await fetch(`${this.gasUrl}?action=getTallies&t=${Date.now()}`, {
         method: 'GET',
         mode: 'cors',
         redirect: 'follow',
+        cache: 'no-cache',
         signal: controller.signal
       });
       clearTimeout(timeoutId);
@@ -101,12 +102,10 @@ export class ApiClient {
    * @returns {Promise<Object>}
    */
   async submitVote(menuId, requestId) {
-    // If in Mock / Simulator mode or GAS URL is missing, execute simulator
     if (!this.gasUrl || this.isMockMode) {
       return this.submitMockVote(menuId, requestId);
     }
 
-    // Production GAS Web App Submission
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), CONFIG.API_TIMEOUT_MS);
 
@@ -118,7 +117,7 @@ export class ApiClient {
         clientTimestamp: Date.now()
       };
 
-      // CORS Preflight 차단을 우회하기 위해 text/plain 및 mode/redirect 설정 적용
+      // text/plain 방식으로 전송하여 브라우저 CORS Preflight(OPTIONS) 블로킹을 완벽 회피
       const response = await fetch(this.gasUrl, {
         method: 'POST',
         mode: 'cors',

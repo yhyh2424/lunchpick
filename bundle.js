@@ -366,11 +366,11 @@
       const timeoutId = setTimeout(() => controller.abort(), CONFIG.API_TIMEOUT_MS);
 
       try {
-        // GAS 리다이렉트를 안전하게 추적하도록 redirect: 'follow', mode: 'cors' 적용
         const response = await fetch(`${this.gasUrl}?action=getTallies&t=${Date.now()}`, {
           method: 'GET',
           mode: 'cors',
           redirect: 'follow',
+          cache: 'no-cache',
           signal: controller.signal
         });
         clearTimeout(timeoutId);
@@ -379,14 +379,10 @@
         return await response.json();
       } catch (err) {
         clearTimeout(timeoutId);
-        console.warn('GAS fetch telemetry failed:', err);
         throw err;
       }
     }
 
-    /**
-     * Submits a vote to GAS Web App (CORS Preflight Bypass via Simple Request)
-     */
     async submitVote(menuId, requestId) {
       if (!this.gasUrl || this.isMockMode) {
         return this.submitMockVote(menuId, requestId);
@@ -403,7 +399,6 @@
           clientTimestamp: Date.now()
         };
 
-        // text/plain 형식으로 전송하여 CORS Preflight(OPTIONS) 차단을 완벽히 우회
         const response = await fetch(this.gasUrl, {
           method: 'POST',
           mode: 'cors',
