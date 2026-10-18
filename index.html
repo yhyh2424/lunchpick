@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="실시간 점심 메뉴 투표 웹 서비스 (v4.0.0 Production Baseline) - 원자적 집계 및 접근성 보장">
+  <title>점심 메뉴 투표 서비스 | Lunch Menu Voting Service v4.0</title>
+  
+  <!-- CSS Stylesheet -->
+  <link rel="stylesheet" href="css/styles.css">
+  
+  <!-- Favicon SVG Data URI -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍱</text></svg>">
+</head>
+<body>
+  <!-- WCAG 2.1 AA Accessibility Skip Link -->
+  <a href="#mainContent" class="skip-link">본문 콘텐츠 바로가기</a>
+
+  <div class="app-container">
+    <!-- Header & Navigation -->
+    <header class="app-header" role="banner">
+      <div class="brand-wrapper">
+        <div class="brand-icon" aria-hidden="true">🍱</div>
+        <div class="brand-titles">
+          <h1>점심 메뉴 투표</h1>
+          <div class="brand-subtitle">
+            <span>Real-Time Lunch Vote</span>
+            <span class="badge-version">v4.0.0 Zero-Defect</span>
+          </div>
+        </div>
+      </div>
+
+      <nav class="header-actions" aria-label="상단 메뉴">
+        <!-- QA Test Suite Trigger (ISO/IEC/IEEE 29119) -->
+        <button id="btnOpenQa" class="btn-touch" type="button" aria-haspopup="dialog" title="ISO/IEC/IEEE 29119 QA 검증 매트릭스">
+          🧪 <span>QA 검증</span>
+        </button>
+
+        <!-- Settings / GAS Config Button -->
+        <button id="btnOpenSettings" class="btn-touch" type="button" aria-haspopup="dialog" title="연동 설정 및 시뮬레이터">
+          ⚙️ <span>설정</span>
+        </button>
+
+        <!-- Dark/Light Theme Toggle (WCAG 2.1 AA) -->
+        <button id="themeToggleBtn" class="icon-btn" type="button" aria-label="테마 전환" title="다크 모드로 전환">
+          🌙 <span class="visually-hidden">다크 모드로 전환</span>
+        </button>
+      </nav>
+    </header>
+
+    <!-- System Telemetry & KST Synchronization Bar -->
+    <section class="status-bar" aria-label="시스템 동기화 정보">
+      <div class="status-group">
+        <span class="status-dot" id="statusDot" aria-hidden="true"></span>
+        <span id="statusText">서버 상태 확인 중...</span>
+      </div>
+      <div class="status-group">
+        <span>⏰ 서버 KST 시각:</span>
+        <span class="server-kst-time" id="serverTimeDisplay">--:--:-- KST</span>
+      </div>
+    </section>
+
+    <!-- Main Content Area -->
+    <main id="mainContent" role="main">
+      <!-- Voting Info Banner -->
+      <section class="voting-banner" aria-labelledby="bannerTitle">
+        <div class="voting-banner-text">
+          <h2 id="bannerTitle">오늘 점심 뭐 먹을까요?</h2>
+          <p>팀원들과 함께 먹고 싶은 대표 점심 메뉴에 투표해 주세요. (1인 1회, 자정 KST 갱신)</p>
+        </div>
+        <div class="vote-meta-stats">
+          <div class="stat-pill" aria-label="현재 총 투표 수">
+            <span>총 참여</span>
+            <strong id="totalVotesBadge">0표</strong>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4 Fixed Menu Cards Grid (PRD FR-1.1 & US-01) -->
+      <section aria-label="투표 가능한 점심 메뉴 목록" style="margin-top: 20px;">
+        <div class="menu-grid" id="menuGrid" role="radiogroup" aria-label="점심 메뉴 4개 선택지">
+          <!-- Dynamic Menu Cards Rendered by app.js -->
+        </div>
+      </section>
+
+      <!-- Primary Action Trigger (투표하기) -->
+      <section class="action-section" aria-label="투표 실행">
+        <button id="btnVote" class="btn-primary-vote" type="button" disabled aria-live="polite">
+          <span class="spinner-inline" id="voteBtnSpinner" style="display: none;" aria-hidden="true"></span>
+          <span id="voteBtnText">투표하기</span>
+        </button>
+        <p class="vote-notice-text" id="voteNoticeText" aria-live="polite">
+          위 메뉴 카드 중 점심으로 드시고 싶은 메뉴를 1개 선택해 주세요.
+        </p>
+      </section>
+    </main>
+
+    <!-- Footer & Standard Compliance -->
+    <footer class="app-footer" role="contentinfo">
+      <div>
+        <span>© 2026 Real-Time Lunch Menu Voting Service v4.0</span>
+      </div>
+      <div class="compliance-tags" aria-label="준수 표준">
+        <span class="compliance-tag">IEEE Std 830-1998</span>
+        <span class="compliance-tag">ISO/IEC/IEEE 29148</span>
+        <span class="compliance-tag">ISO/IEC/IEEE 29119 QA</span>
+        <span class="compliance-tag">WCAG 2.1 AA A11y</span>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Accessible Toast Container (SRS-FR-005 & TC-ERR-001) -->
+  <aside class="toast-container" aria-live="assertive" aria-atomic="true">
+    <div class="toast" id="toast" role="alert">
+      <span class="toast-icon" id="toastIcon" aria-hidden="true">🔔</span>
+      <span class="toast-message" id="toastMessage">알림 내용</span>
+    </div>
+  </aside>
+
+  <!-- Settings & Simulation Modal -->
+  <div class="modal-overlay" id="settingsModal" role="dialog" aria-modal="true" aria-labelledby="settingsModalTitle">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="settingsModalTitle">⚙️ 백엔드 연동 & 시뮬레이션 설정</h3>
+        <button type="button" class="icon-btn" id="btnCloseSettings" aria-label="설정 창 닫기">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label" for="modeSelect">동작 모드 선택</label>
+          <select id="modeSelect" class="form-select">
+            <option value="mock">무설치 시뮬레이터 모드 (로컬/데모 즉시 실행)</option>
+            <option value="gas">Google Apps Script (GAS) 실서버 연동 모드</option>
+          </select>
+          <span class="form-help">시뮬레이터 모드에서는 구글 시트 배포 없이도 원자적 증분 및 결함 주입을 즉시 테스트할 수 있습니다.</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="gasUrlInput">Google Apps Script Web App URL</label>
+          <input type="url" id="gasUrlInput" class="form-input" placeholder="https://script.google.com/macros/s/.../exec">
+          <span class="form-help">Google Sheets에 Apps Script 배포 후 발급받은 웹 앱 URL을 입력하세요. (`backend/Code.gs` 제공)</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="faultSelect">결함 주입 테스트 (ISO/IEC/IEEE 29119)</label>
+          <select id="faultSelect" class="form-select">
+            <option value="none">정상 동작 (Fault: None)</option>
+            <option value="timeout">네트워크 타임아웃 5초 초과 (SRS-FR-005 테스트)</option>
+            <option value="lock_fail">서버 락 획득 실패 / 경합 고갈 (LockService > 10초)</option>
+            <option value="corrupt_data">비정상/빈 셀 데이터 (SRS-FR-003 방어적 널 병합)</option>
+          </select>
+          <span class="form-help">특정 에러 상황을 주입하여 트랜잭션 롤백 및 방어 코드가 올바르게 동작하는지 확인합니다.</span>
+        </div>
+
+        <div class="form-group" style="padding-top: 10px; border-top: 1px dashed var(--color-surface-border);">
+          <label class="form-label">테스트용 투표 및 집계 초기화</label>
+          <button type="button" class="btn-touch" id="btnResetVote" style="color: var(--color-error); border-color: rgba(185, 28, 28, 0.3);">
+            🔄 내 오늘 투표 기록 초기화
+          </button>
+          <button type="button" class="btn-touch" id="btnResetTallies" style="color: var(--color-primary); border-color: rgba(208, 74, 55, 0.3); margin-top: 8px;">
+            📊 모든 메뉴 득표수 0표로 초기화 (서버/로컬 동기화)
+          </button>
+          <span class="form-help">매일 KST 자정(00:00)에 모든 메뉴의 득표수는 자동으로 0표로 리셋됩니다.</span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-touch" id="btnSaveSettings" style="background-color: var(--color-primary); color: #FFFFFF; border: none;">
+          설정 저장 및 적용
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- QA Verification Matrix Modal (ISO/IEC/IEEE 29119) -->
+  <div class="modal-overlay" id="qaModal" role="dialog" aria-modal="true" aria-labelledby="qaModalTitle">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="qaModalTitle">🧪 ISO/IEC/IEEE 29119 QA 검증 매트릭스</h3>
+        <button type="button" class="icon-btn" id="btnCloseQa" aria-label="QA 검증 창 닫기">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <p id="qaSummary" style="font-size: 0.85rem; color: var(--color-text-muted);">
+            SRS v4.0 문서의 6대 핵심 테스트 케이스를 자동 검증합니다.
+          </p>
+          <button type="button" class="btn-touch" id="btnRunAllQa" style="background-color: var(--color-primary); color: #FFFFFF; border: none;">
+            ▶ 전체 테스트 실행
+          </button>
+        </div>
+
+        <div class="qa-test-list" id="qaTestContainer">
+          <!-- Populated by qa-tests.js -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-touch" onclick="document.getElementById('qaModal').classList.remove('open')">
+          닫기
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Universal Bundle Script (Works directly via file:// and http://) -->
+  <script src="js/bundle.js"></script>
+</body>
+</html>
