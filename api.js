@@ -71,12 +71,13 @@ export class ApiClient {
     try {
       const response = await fetch(`${this.gasUrl}?action=getTallies&t=${Date.now()}`, {
         method: 'GET',
-        redirect: 'follow'
+        redirect: 'follow',
+        cache: 'no-cache'
       });
       if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
       return await response.json();
     } catch (err) {
-      console.warn('GAS fetch telemetry failed:', err);
+      console.warn('GAS fetch failed:', err);
       throw err;
     }
   }
@@ -87,24 +88,16 @@ export class ApiClient {
     }
 
     try {
-      const payload = {
-        action: 'vote',
-        menuId,
-        requestId,
-        clientTimestamp: Date.now()
-      };
-
-      const response = await fetch(this.gasUrl, {
-        method: 'POST',
+      // GET 파라미터 방식을 사용하여 CORS 및 리다이렉트 바디 유실 문제 원천 차단
+      const response = await fetch(`${this.gasUrl}?action=vote&menuId=${menuId}&requestId=${requestId}&t=${Date.now()}`, {
+        method: 'GET',
         redirect: 'follow',
-        headers: {
-          'Content-Type': 'text/plain;charset=utf-8'
-        },
-        body: JSON.stringify(payload)
+        cache: 'no-cache'
       });
 
       if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
       const result = await response.json();
+      
       if (result.status !== 'success') {
         throw new Error(result.message || 'Server increment failed');
       }

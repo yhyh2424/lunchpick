@@ -361,71 +361,48 @@
      * Fetches latest telemetry from GAS Web App or Mock Simulator (CORS Safe)
      */
     async fetchTelemetry() {
-      if (!this.gasUrl || this.isMockMode) {
-        return this.fetchMockTelemetry();
-      }
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), CONFIG.API_TIMEOUT_MS);
-
-      try {
-        const response = await fetch(`${this.gasUrl}?action=getTallies&t=${Date.now()}`, {
-          method: 'GET',
-          mode: 'cors',
-          redirect: 'follow',
-          cache: 'no-cache',
-          signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-
-        if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
-        return await response.json();
-      } catch (err) {
-        clearTimeout(timeoutId);
-        throw err;
-      }
+    if (!this.gasUrl || this.isMockMode) {
+      return this.fetchMockTelemetry();
     }
 
-    async submitVote(menuId, requestId) {
-      if (!this.gasUrl || this.isMockMode) {
-        return this.submitMockVote(menuId, requestId);
-      }
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), CONFIG.API_TIMEOUT_MS);
-
-      try {
-        const payload = {
-          action: 'vote',
-          menuId,
-          requestId,
-          clientTimestamp: Date.now()
-        };
-
-        const response = await fetch(this.gasUrl, {
-          method: 'POST',
-          mode: 'cors',
-          redirect: 'follow',
-          headers: {
-            'Content-Type': 'text/plain;charset=utf-8'
-          },
-          body: JSON.stringify(payload),
-          signal: controller.signal
-        });
-
-        clearTimeout(timeoutId);
-
-        if (!response.ok) throw new Error(`HTTP ${response.status}: Vote Submission Failed`);
-        const result = await response.json();
-        if (result.status !== 'success') {
-          throw new Error(result.message || 'Server increment failed');
-        }
-        return result;
-      } catch (err) {
-        clearTimeout(timeoutId);
-        throw err;
-      }
+    try {
+      const response = await fetch(`${this.gasUrl}?action=getTallies&t=${Date.now()}`, {
+        method: 'GET',
+        redirect: 'follow',
+        cache: 'no-cache'
+      });
+      if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
+      return await response.json();
+    } catch (err) {
+      console.warn('GAS fetch failed:', err);
+      throw err;
     }
+  }
+
+  async submitVote(menuId, requestId) {
+    if (!this.gasUrl || this.isMockMode) {
+      return this.submitMockVote(menuId, requestId);
+    }
+
+    try {
+      // GET 파라미터 방식을 사용하여 CORS 및 리다이렉트 바디 유실 문제 원천 차단
+      const response = await fetch(`${this.gasUrl}?action=vote&menuId=${menuId}&requestId=${requestId}&t=${Date.now()}`, {
+        method: 'GET',
+        redirect: 'follow',
+        cache: 'no-cache'
+      });
+
+      if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
+      const result = await response.json();
+      
+      if (result.status !== 'success') {
+        throw new Error(result.message || 'Server increment failed');
+      }
+      return result;
+    } catch (err) {
+      throw err;
+    }
+  }
 
     async fetchMockTelemetry() {
       await new Promise(res => setTimeout(res, 120));
