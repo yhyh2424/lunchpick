@@ -182,23 +182,26 @@
     }
 
     checkDailyVoteStatus() {
-      const tokenKey = this.getTodayTokenKey();
-      const existing = localStorage.getItem(tokenKey);
-      if (existing) {
-        try {
-          const parsed = JSON.parse(existing);
-          this.hasVotedToday = true;
-          this.votedMenuId = parsed.menuId || null;
-        } catch {
-          this.hasVotedToday = true;
-          this.votedMenuId = existing;
-        }
-      } else {
+    const tokenKey = this.getTodayTokenKey();
+    const existing = localStorage.getItem(tokenKey);
+    if (existing) {
+      try {
+        const parsed = JSON.parse(existing);
+        this.hasVotedToday = true;
+        this.votedMenuId = parsed.menuId || null;
+      } catch {
+        this.hasVotedToday = true;
+        this.votedMenuId = existing;
+      }
+    } else {
+      // 투표 상태가 아닐 때 불필요한 초기화로 득표수가 깨지지 않도록 분기 처리
+      if (this.hasVotedToday) {
         this.hasVotedToday = false;
         this.votedMenuId = null;
       }
-      this.notify();
     }
+    this.notify();
+  }
 
     recordVoteLocally(menuId, requestId) {
       const tokenKey = this.getTodayTokenKey();
