@@ -68,77 +68,104 @@ export class ApiClient {
       return this.fetchMockTelemetry();
     }
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), CONFIG.API_TIMEOUT_MS);
+
     try {
       const response = await fetch(`${this.gasUrl}?action=getTallies&t=${Date.now()}`, {
         method: 'GET',
         redirect: 'follow',
-        cache: 'no-cache'
+        cache: 'no-cache',
+        signal: controller.signal
       });
-      if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
-      return await response.json();
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`HTTP Error ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
     } catch (err) {
-      console.warn('GAS fetch failed:', err);
+      clearTimeout(timeoutId);
+      console.warn('GAS fetch telemetry failed:', err);
       throw err;
     }
   }
 
+  /**
+   * Submits a vote to GAS Web App or Mock Simulator (POST JSON via text/plain)
+   * @param {string} menuId 
+   * @param {string} requestId UUIDv4
+   * @returns {Promise<Object>}
+   */
   async submitVote(menuId, requestId) {
     if (!this.gasUrl || this.isMockMode) {
       return this.submitMockVote(menuId, requestId);
     }
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), CONFIG.API_TIMEOUT_MS);
+
     try {
-      // GET 파라미터 방식을 사용하여 CORS 및 리다이렉트 바디 유실 문제 원천 차단
-      const response = await fetch(`${this.gasUrl}?action=vote&menuId=${menuId}&requestId=${requestId}&t=${Date.now()}`, {
-        method: 'GET',
+      const payload = {
+        menuId: menuId,
+        requestId: requestId
+      };
+
+      const response = await fetch(this.gasUrl, {
+        method: 'POST',
         redirect: 'follow',
-        cache: 'no-cache'
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8'
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal
       });
 
-      if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: Vote Submission Failed`);
+      }
+
       const result = await response.json();
-      
       if (result.status !== 'success') {
         throw new Error(result.message || 'Server increment failed');
       }
+
       return result;
     } catch (err) {
+      clearTimeout(timeoutId);
       throw err;
     }
   }
 
   // =========================================================================
-  // Built-in Mock Simulator (Guarantees Zero-Defect QA Verification)
+  // Built-in Mock Simulator
   // =========================================================================
 
-  /**
-   * Mock Telemetry Fetch with fault injection support
-   */
   async fetchMockTelemetry() {
-    // Simulate slight network roundtrip (150ms)
     await new Promise(res => setTimeout(res, 150));
 
-    // Calculate current KST time
     const now = new Date();
     const utcEpoch = now.getTime() + (now.getTimezoneOffset() * 60000);
     const kstEpoch = utcEpoch + (9 * 60 * 60 * 1000);
     const serverTimeKst = new Date(kstEpoch).toISOString();
 
-    // Handle Corrupted Data fault injection (SRS-FR-003 testing)
     if (this.faultInjection === 'corrupt_data') {
       return {
         status: 'success',
         server_time_kst: serverTimeKst,
         tallies: {
-          jeyuk: null,             // Null cell
-          jajang: 'INVALID_STR',   // Non-numeric cell
-          tonkatsu: 14,            // Normal cell
-          gukbap: undefined        // Undefined cell
+          jeyuk: null,
+          jajang: 'INVALID_STR',
+          tonkatsu: 14,
+          gukbap: undefined
         }
       };
     }
 
-    // Daily auto-zero: Retrieve simulated tallies for today or initialize all to 0표
     const todayKst = this.state.getTodayKstDateString();
     const dateKey = `${CONFIG.STORAGE_KEYS.LOCAL_TALLIES}_${todayKst}`;
     let stored = localStorage.getItem(dateKey);
@@ -150,7 +177,6 @@ export class ApiClient {
         tallies = { jeyuk: 0, jajang: 0, tonkatsu: 0, gukbap: 0 };
       }
     } else {
-      // Default to 0 votes for all menus every new day
       tallies = { jeyuk: 0, jajang: 0, tonkatsu: 0, gukbap: 0 };
       localStorage.setItem(dateKey, JSON.stringify(tallies));
     }
@@ -162,33 +188,23 @@ export class ApiClient {
     };
   }
 
-  /**
-   * Mock Vote Submission simulating GAS ScriptLock & Idempotency
-   */
   async submitMockVote(menuId, requestId) {
-    // Fault Injection 1: Timeout >= 5000ms (SRS-FR-005, NFR-3, TC-ERR-001)
     if (this.faultInjection === 'timeout') {
-      // Simulate slow network exceeding 5000ms
       await new Promise(res => setTimeout(res, 5200));
       throw new Error('Network request timed out (>= 5000ms)');
     }
 
-    // Fault Injection 2: Lock Exhaustion (ScriptLock.tryLock failure > 10s)
     if (this.faultInjection === 'lock_fail') {
       await new Promise(res => setTimeout(res, 600));
-      throw new Error('Server lock acquisition failed (LockService exhaustion > 10s)');
+      throw new Error('Server lock acquisition failed');
     }
 
-    // Simulate standard GAS atomic lock & execution delay (350ms)
     await new Promise(res => setTimeout(res, 350));
 
-    // FR-3.2: 10-second idempotency window deduplication check
     const now = Date.now();
     if (this.simulatedIdempotencyCache.has(requestId)) {
       const cachedTime = this.simulatedIdempotencyCache.get(requestId);
       if (now - cachedTime < 10000) {
-        console.warn(`[IDEMPOTENCY] Dropped duplicate request ID: ${requestId}`);
-        // Return existing tallies without re-incrementing
         const currentData = await this.fetchMockTelemetry();
         return {
           status: 'success',
@@ -200,18 +216,10 @@ export class ApiClient {
     }
     this.simulatedIdempotencyCache.set(requestId, now);
 
-    // Atomic increment in mock storage
     let currentData = await this.fetchMockTelemetry();
     let tallies = { ...currentData.tallies };
     tallies[menuId] = (tallies[menuId] || 0) + 1;
     localStorage.setItem(CONFIG.STORAGE_KEYS.LOCAL_TALLIES, JSON.stringify(tallies));
-
-    // Clean old keys from idempotency cache
-    for (const [id, time] of this.simulatedIdempotencyCache.entries()) {
-      if (now - time > 15000) {
-        this.simulatedIdempotencyCache.delete(id);
-      }
-    }
 
     return {
       status: 'success',
