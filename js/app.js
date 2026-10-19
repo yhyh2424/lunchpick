@@ -172,22 +172,39 @@ export class LunchVoteApp {
   // Event Listeners & UI Binding
   // =========================================================================
 
-  setupEventListeners() {
-    // Primary Vote Action Trigger (FR-1.3 & SRS-FR-002)
+    setupEventListeners() {
     this.elements.btnVote.addEventListener('click', () => this.handleVoteSubmission());
-
-    // Theme Toggle
     this.elements.themeToggleBtn.addEventListener('click', () => this.toggleTheme());
 
-    // Settings Modal
     this.elements.btnOpenSettings.addEventListener('click', () => this.openSettingsModal());
     this.elements.btnCloseSettings.addEventListener('click', () => this.closeSettingsModal());
     this.elements.btnSaveSettings.addEventListener('click', () => this.saveSettings());
-    this.elements.btnResetVote.addEventListener('click', () => {
-      this.state.resetDailyVoteForTesting();
-      this.showToast('오늘의 투표 기록이 초기화되었습니다. 다시 투표할 수 있습니다.', 'info');
+
+    // [FIX] 내 투표 기록 초기화: GAS에서 해당 메뉴 -1 차감 후 로컬 토큰 삭제
+    this.elements.btnResetVote.addEventListener('click', async () => {
+      const votedMenuId = this.state.votedMenuId;
       this.closeSettingsModal();
+      this.setStatusSyncing(true, '투표 기록 초기화 중...');
+
+      try {
+        const result = await this.api.cancelVote(votedMenuId);
+        this.state.resetDailyVoteForTesting();
+        if (result && result.tallies) {
+          this.state.reconcileServerTallies(result.tallies);
+        } else {
+          // GAS 응답 없을 시 폴링으로 최신 상태 동기화
+          await this.reconcileServerState(false);
+        }
+        this.showToast('✅ 투표 기록이 초기화되었습니다. 다시 투표할 수 있습니다.', 'info');
+      } catch (err) {
+        console.error('cancelVote error:', err);
+        this.state.resetDailyVoteForTesting();
+        this.showToast('✅ 로컬 투표 기록이 초기화되었습니다. (서버 차감 실패)', 'warning');
+      } finally {
+        this.setStatusSyncing(false, '동기화 완료');
+      }
     });
+
     const btnResetTallies = document.getElementById('btnResetTallies');
     if (btnResetTallies) {
       btnResetTallies.addEventListener('click', async () => {
@@ -197,6 +214,24 @@ export class LunchVoteApp {
         this.closeSettingsModal();
       });
     }
+
+    this.elements.settingsModal.addEventListener('click', (e) => {
+      if (e.target === this.elements.settingsModal) this.closeSettingsModal();
+    });
+    this.elements.qaModal.addEventListener('click', (e) => {
+      if (e.target === this.elements.qaModal) this.closeQaModal();
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        this.closeSettingsModal();
+        this.closeQaModal();
+      }
+    });
+
+    this.elements.btnOpenQa.addEventListener('click', () => this.openQaModal());
+    this.elements.btnCloseQa.addEventListener('click', () => this.closeQaModal());
+  }
 
     // Close modal on background click
     this.elements.settingsModal.addEventListener('click', (e) => {

@@ -354,6 +354,78 @@
       return zeroTallies;
     }
 
+        async cancelVote(menuId) {
+      if (!menuId) return;
+
+      if (!this.gasUrl || this.isMockMode) {
+        const todayKst = this.state.getTodayKstDateString();
+        const dateKey = `${CONFIG.STORAGE_KEYS.LOCAL_TALLIES}_${todayKst}`;
+        let stored = localStorage.getItem(dateKey);
+        let tallies = { jeyuk: 0, jajang: 0, tonkatsu: 0, gukbap: 0 };
+        if (stored) {
+          try { tallies = JSON.parse(stored); } catch {}
+        }
+        tallies[menuId] = Math.max(0, (tallies[menuId] || 0) - 1);
+        localStorage.setItem(dateKey, JSON.stringify(tallies));
+        return { status: 'success', tallies };
+      }
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), CONFIG.API_TIMEOUT_MS);
+      try {
+        const payload = { action: 'cancelVote', menuId };
+        const response = await fetch(this.gasUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(payload),
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return await response.json();
+      } catch (err) {
+        clearTimeout(timeoutId);
+        console.warn('cancelVote GAS error:', err);
+        return null;
+      }
+    }
+
+    async cancelVote(menuId) {
+      if (!menuId) return;
+
+      if (!this.gasUrl || this.isMockMode) {
+        const todayKst = this.state.getTodayKstDateString();
+        const dateKey = `${CONFIG.STORAGE_KEYS.LOCAL_TALLIES}_${todayKst}`;
+        let stored = localStorage.getItem(dateKey);
+        let tallies = { jeyuk: 0, jajang: 0, tonkatsu: 0, gukbap: 0 };
+        if (stored) {
+          try { tallies = JSON.parse(stored); } catch {}
+        }
+        tallies[menuId] = Math.max(0, (tallies[menuId] || 0) - 1);
+        localStorage.setItem(dateKey, JSON.stringify(tallies));
+        return { status: 'success', tallies };
+      }
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), CONFIG.API_TIMEOUT_MS);
+      try {
+        const payload = { action: 'cancelVote', menuId };
+        const response = await fetch(this.gasUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(payload),
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return await response.json();
+      } catch (err) {
+        clearTimeout(timeoutId);
+        console.warn('cancelVote GAS error:', err);
+        return null;
+      }
+    }
+
     async fetchTelemetry() {
       if (!this.gasUrl || this.isMockMode) {
         return this.fetchMockTelemetry();
@@ -398,7 +470,6 @@
           method: 'POST',
           headers: {
             'Content-Type': 'text/plain;charset=utf-8',
-            'X-Request-ID': requestId
           },
           body: JSON.stringify(payload),
           signal: controller.signal
@@ -494,7 +565,10 @@
       let currentData = await this.fetchMockTelemetry();
       let tallies = { ...currentData.tallies };
       tallies[menuId] = (tallies[menuId] || 0) + 1;
-      localStorage.setItem(CONFIG.STORAGE_KEYS.LOCAL_TALLIES, JSON.stringify(tallies));
+      // [FIX] 날짜 키에 저장 (fetchMockTelemetry가 읽는 키와 동일하게)
+      const todayKst = this.state.getTodayKstDateString();
+      const dateKey = `${CONFIG.STORAGE_KEYS.LOCAL_TALLIES}_${todayKst}`;
+      localStorage.setItem(dateKey, JSON.stringify(tallies));
 
       for (const [id, time] of this.simulatedIdempotencyCache.entries()) {
         if (now - time > 15000) {
@@ -661,10 +735,27 @@
       this.elements.btnOpenSettings.addEventListener('click', () => this.openSettingsModal());
       this.elements.btnCloseSettings.addEventListener('click', () => this.closeSettingsModal());
       this.elements.btnSaveSettings.addEventListener('click', () => this.saveSettings());
-      this.elements.btnResetVote.addEventListener('click', () => {
-        this.state.resetDailyVoteForTesting();
-        this.showToast('오늘의 투표 기록이 초기화되었습니다. 다시 투표할 수 있습니다.', 'info');
+            // [FIX] 내 투표 기록 초기화: GAS에서 해당 메뉴 -1 차감 후 로컬 토큰 삭제
+      this.elements.btnResetVote.addEventListener('click', async () => {
+        const votedMenuId = this.state.votedMenuId;
         this.closeSettingsModal();
+        this.setStatusSyncing(true, '투표 기록 초기화 중...');
+        try {
+          const result = await this.api.cancelVote(votedMenuId);
+          this.state.resetDailyVoteForTesting();
+          if (result && result.tallies) {
+            this.state.reconcileServerTallies(result.tallies);
+          } else {
+            await this.reconcileServerState(false);
+          }
+          this.showToast('✅ 투표 기록이 초기화되었습니다. 다시 투표할 수 있습니다.', 'info');
+        } catch (err) {
+          console.error('cancelVote error:', err);
+          this.state.resetDailyVoteForTesting();
+          this.showToast('✅ 로컬 투표 기록이 초기화되었습니다. (서버 차감 실패)', 'warning');
+        } finally {
+          this.setStatusSyncing(false, '동기화 완료');
+        }
       });
       const btnResetTallies = document.getElementById('btnResetTallies');
       if (btnResetTallies) {
