@@ -1,8 +1,7 @@
 /**
- * Lunch Menu Voting Web Service (v4.0.0 Production Baseline)
+ * Lunch Menu Voting Web Service (v4.1.0)
  * API Proxy & Google Apps Script (GAS) Communication Layer
- * Supports Production GAS Endpoint + Interactive Fault-Injection Simulator
- * Standard Compliance: IEEE Std 830-1998 / ISO/IEC/IEEE 29148 / ISO/IEC/IEEE 29119
+ * FIX: cancelVote 기능 추가, 중복 코드 제거
  */
 
 import { CONFIG } from './config.js';
@@ -14,8 +13,6 @@ export class ApiClient {
     const storedMock = localStorage.getItem(CONFIG.STORAGE_KEYS.MOCK_MODE);
     this.isMockMode = storedMock === null ? false : storedMock === 'true';
     this.faultInjection = localStorage.getItem(CONFIG.STORAGE_KEYS.FAUL_INJECTION) || 'none';
-    
-    // In-memory idempotency cache for simulator (10-second window, FR-3.2)
     this.simulatedIdempotencyCache = new Map();
   }
 
@@ -34,14 +31,12 @@ export class ApiClient {
   }
 
   setFaultInjection(mode) {
-    // 'none' | 'timeout' | 'lock_fail' | 'corrupt_data'
     this.faultInjection = mode;
     localStorage.setItem(CONFIG.STORAGE_KEYS.FAUL_INJECTION, mode);
   }
 
-  /**
-   * Resets all tallies on the server and local storage to 0
-   */
+  // ── resetTallies (전체 0 초기화) ──────────────────────────────────────────
+
   async resetTallies() {
     const todayKst = this.state.getTodayKstDateString();
     const dateKey = `${CONFIG.STORAGE_KEYS.LOCAL_TALLIES}_${todayKst}`;
@@ -52,17 +47,56 @@ export class ApiClient {
     if (this.gasUrl && !this.isMockMode) {
       try {
         await fetch(`${this.gasUrl}?action=resetTallies&t=${Date.now()}`, { method: 'GET' });
-      } catch (e) {
-        console.warn('GAS reset request error:', e);
+      } catch (ex) {
+        console.warn('GAS reset request error:', ex);
       }
     }
     return zeroTallies;
   }
 
-  /**
-   * Fetches latest telemetry from GAS Web App or Mock Simulator
-   * @returns {Promise<Object>}
-   */
+  // ── cancelVote (내 투표 기록 초기화: 해당 메뉴 -1) ───────────────────────
+
+  async cancelVote(menuId) {
+    if (!menuId) return;
+
+    if (!this.gasUrl || this.isMockMode) {
+      // 시뮬레이터 모드: localStorage에서 -1
+      const todayKst = this.state.getTodayKstDateString();
+      const dateKey = `${CONFIG.STORAGE_KEYS.LOCAL_TALLIES}_${todayKst}`;
+      let stored = localStorage.getItem(dateKey);
+      let tallies = { jeyuk: 0, jajang: 0, tonkatsu: 0, gukbap: 0 };
+      if (stored) {
+        try { tallies = JSON.parse(stored); } catch {}
+      }
+      tallies[menuId] = Math.max(0, (tallies[menuId] || 0) - 1);
+      localStorage.setItem(dateKey, JSON.stringify(tallies));
+      return { status: 'success', tallies };
+    }
+
+    // GAS 실서버 모드: cancelVote POST
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), CONFIG.API_TIMEOUT_MS);
+
+    try {
+      const payload = { action: 'cancelVote', menuId };
+      const response = await fetch(this.gasUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return await response.json();
+    } catch (err) {
+      clearTimeout(timeoutId);
+      console.warn('cancelVote GAS error:', err);
+      return null;
+    }
+  }
+
+  // ── fetchTelemetry ────────────────────────────────────────────────────────
+
   async fetchTelemetry() {
     if (!this.gasUrl || this.isMockMode) {
       return this.fetchMockTelemetry();
@@ -74,31 +108,21 @@ export class ApiClient {
     try {
       const response = await fetch(`${this.gasUrl}?action=getTallies&t=${Date.now()}`, {
         method: 'GET',
-        redirect: 'follow',
-        cache: 'no-cache',
+        headers: { 'Accept': 'application/json' },
         signal: controller.signal
       });
       clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error(`HTTP Error ${response.status}`);
-      }
-
-      const data = await response.json();
-      return data;
+      if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
+      return await response.json();
     } catch (err) {
       clearTimeout(timeoutId);
-      console.warn('GAS fetch telemetry failed:', err);
+      console.warn('GAS fetchTelemetry failed:', err);
       throw err;
     }
   }
 
-  /**
-   * Submits a vote to GAS Web App or Mock Simulator (POST JSON via text/plain)
-   * @param {string} menuId 
-   * @param {string} requestId UUIDv4
-   * @returns {Promise<Object>}
-   */
+  // ── submitVote ────────────────────────────────────────────────────────────
+
   async submitVote(menuId, requestId) {
     if (!this.gasUrl || this.isMockMode) {
       return this.submitMockVote(menuId, requestId);
@@ -108,32 +132,20 @@ export class ApiClient {
     const timeoutId = setTimeout(() => controller.abort(), CONFIG.API_TIMEOUT_MS);
 
     try {
-      const payload = {
-        menuId: menuId,
-        requestId: requestId
-      };
-
+      const payload = { action: 'vote', menuId, requestId, clientTimestamp: Date.now() };
+      // 커스텀 헤더 제거 → CORS preflight 방지
       const response = await fetch(this.gasUrl, {
         method: 'POST',
-        redirect: 'follow',
-        headers: {
-          'Content-Type': 'text/plain;charset=utf-8'
-        },
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(payload),
         signal: controller.signal
       });
-
       clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: Vote Submission Failed`);
-      }
-
+      if (!response.ok) throw new Error(`HTTP ${response.status}: Vote Submission Failed`);
       const result = await response.json();
       if (result.status !== 'success') {
         throw new Error(result.message || 'Server increment failed');
       }
-
       return result;
     } catch (err) {
       clearTimeout(timeoutId);
@@ -141,28 +153,20 @@ export class ApiClient {
     }
   }
 
-  // =========================================================================
-  // Built-in Mock Simulator
-  // =========================================================================
+  // ── Mock Simulator ────────────────────────────────────────────────────────
 
   async fetchMockTelemetry() {
     await new Promise(res => setTimeout(res, 150));
 
     const now = new Date();
-    const utcEpoch = now.getTime() + (now.getTimezoneOffset() * 60000);
-    const kstEpoch = utcEpoch + (9 * 60 * 60 * 1000);
+    const kstEpoch = now.getTime() + (now.getTimezoneOffset() * 60000) + (9 * 60 * 60 * 1000);
     const serverTimeKst = new Date(kstEpoch).toISOString();
 
     if (this.faultInjection === 'corrupt_data') {
       return {
         status: 'success',
         server_time_kst: serverTimeKst,
-        tallies: {
-          jeyuk: null,
-          jajang: 'INVALID_STR',
-          tonkatsu: 14,
-          gukbap: undefined
-        }
+        tallies: { jeyuk: null, jajang: 'INVALID_STR', tonkatsu: 14, gukbap: undefined }
       };
     }
 
@@ -171,21 +175,14 @@ export class ApiClient {
     let stored = localStorage.getItem(dateKey);
     let tallies = {};
     if (stored) {
-      try {
-        tallies = JSON.parse(stored);
-      } catch {
-        tallies = { jeyuk: 0, jajang: 0, tonkatsu: 0, gukbap: 0 };
-      }
+      try { tallies = JSON.parse(stored); }
+      catch { tallies = { jeyuk: 0, jajang: 0, tonkatsu: 0, gukbap: 0 }; }
     } else {
       tallies = { jeyuk: 0, jajang: 0, tonkatsu: 0, gukbap: 0 };
       localStorage.setItem(dateKey, JSON.stringify(tallies));
     }
 
-    return {
-      status: 'success',
-      server_time_kst: serverTimeKst,
-      tallies
-    };
+    return { status: 'success', server_time_kst: serverTimeKst, tallies };
   }
 
   async submitMockVote(menuId, requestId) {
@@ -193,10 +190,9 @@ export class ApiClient {
       await new Promise(res => setTimeout(res, 5200));
       throw new Error('Network request timed out (>= 5000ms)');
     }
-
     if (this.faultInjection === 'lock_fail') {
-      await new Promise(res => setTimeout(res, 600));
-      throw new Error('Server lock acquisition failed');
+      await new Promise(res => setTimeout(res, 500));
+      throw new Error('Server lock acquisition failed (LockService exhaustion > 10s)');
     }
 
     await new Promise(res => setTimeout(res, 350));
@@ -205,6 +201,7 @@ export class ApiClient {
     if (this.simulatedIdempotencyCache.has(requestId)) {
       const cachedTime = this.simulatedIdempotencyCache.get(requestId);
       if (now - cachedTime < 10000) {
+        console.warn(`[IDEMPOTENCY] Dropped duplicate: ${requestId}`);
         const currentData = await this.fetchMockTelemetry();
         return {
           status: 'success',
@@ -219,12 +216,16 @@ export class ApiClient {
     let currentData = await this.fetchMockTelemetry();
     let tallies = { ...currentData.tallies };
     tallies[menuId] = (tallies[menuId] || 0) + 1;
-    localStorage.setItem(CONFIG.STORAGE_KEYS.LOCAL_TALLIES, JSON.stringify(tallies));
 
-    return {
-      status: 'success',
-      server_time_kst: currentData.server_time_kst,
-      tallies
-    };
+    // [FIX] 날짜 키에 저장 (fetchMockTelemetry와 동일한 키)
+    const todayKst = this.state.getTodayKstDateString();
+    const dateKey = `${CONFIG.STORAGE_KEYS.LOCAL_TALLIES}_${todayKst}`;
+    localStorage.setItem(dateKey, JSON.stringify(tallies));
+
+    for (const [id, time] of this.simulatedIdempotencyCache.entries()) {
+      if (now - time > 15000) this.simulatedIdempotencyCache.delete(id);
+    }
+
+    return { status: 'success', server_time_kst: currentData.server_time_kst, tallies };
   }
 }
