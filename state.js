@@ -162,11 +162,8 @@ export class VotingState {
         this.votedMenuId = existing;
       }
     } else {
-      // 투표 상태가 아닐 때 불필요한 초기화로 득표수가 깨지지 않도록 분기 처리
-      if (this.hasVotedToday) {
-        this.hasVotedToday = false;
-        this.votedMenuId = null;
-      }
+      this.hasVotedToday = false;
+      this.votedMenuId = null;
     }
     this.notify();
   }
@@ -218,9 +215,9 @@ export class VotingState {
   reconcileServerTallies(rawTallies) {
     if (!rawTallies || typeof rawTallies !== 'object') return;
 
-    let hasChanges = false;
     CONFIG.MENU_ITEMS.forEach(item => {
       const rawVal = rawTallies[item.id];
+      // Defensive mapping: empty, undefined, null, NaN or non-numeric mapped to 0
       let safeInt = 0;
       if (typeof rawVal === 'number' && !isNaN(rawVal)) {
         safeInt = Math.max(0, Math.floor(rawVal));
@@ -228,17 +225,10 @@ export class VotingState {
         const parsed = parseInt(rawVal.trim(), 10);
         safeInt = isNaN(parsed) ? 0 : Math.max(0, parsed);
       }
-      
-      if (this.tallies[item.id] !== safeInt) {
-        this.tallies[item.id] = safeInt;
-        hasChanges = true;
-      }
+      this.tallies[item.id] = safeInt;
     });
 
-    // 데이터 변화가 있거나 강제 동기화가 필요할 때 렌더링 트리거
-    if (hasChanges || Object.values(this.tallies).every(v => v === 0)) {
-      this.notify();
-    }
+    this.notify();
   }
 
   /**
