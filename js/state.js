@@ -271,20 +271,20 @@ export class VotingState {
   }
 
   /**
-   * Dynamic top-rank badge (FR-2.2: 1st Place)
-   * Finds menu item with strictly highest vote tally
-   * @returns {string|null} menuId of the leader, or null if all 0
+   * Dynamic top-rank badge (FR-2.2: 1st Place / Co-First Place)
+   * Returns array of menuIds sharing the highest vote tally.
+   * Returns empty array if all tallies are 0.
+   * @returns {string[]}
    */
   calculateTopItem() {
     let max = 0;
-    let leader = null;
-    for (const [id, count] of Object.entries(this.tallies)) {
-      if (count > max) {
-        max = count;
-        leader = id;
-      }
+    for (const count of Object.values(this.tallies)) {
+      if (count > max) max = count;
     }
-    return max > 0 ? leader : null;
+    if (max === 0) return [];
+    return Object.entries(this.tallies)
+      .filter(([, count]) => count === max)
+      .map(([id]) => id);
   }
 
   /**

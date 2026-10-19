@@ -271,14 +271,13 @@
 
     calculateTopItem() {
       let max = 0;
-      let leader = null;
-      for (const [id, count] of Object.entries(this.tallies)) {
-        if (count > max) {
-          max = count;
-          leader = id;
-        }
+      for (const count of Object.values(this.tallies)) {
+        if (count > max) max = count;
       }
-      return max > 0 ? leader : null;
+      if (max === 0) return [];
+      return Object.entries(this.tallies)
+        .filter(([, count]) => count === max)
+        .map(([id]) => id);
     }
 
     initMultiTabSync() {
@@ -894,8 +893,15 @@
         pctEl.textContent = `${pct}%`;
         barEl.style.width = `${pct}%`;
 
-        if (topItem && item.id === topItem) {
+        // Dynamic top-rank badge (FR-2.2: 1st Place / Co-First Place)
+        const isTopItem = Array.isArray(topItem) && topItem.includes(item.id);
+        const isSharedFirst = Array.isArray(topItem) && topItem.length > 1;
+
+        if (isTopItem) {
           badgeEl.style.display = 'flex';
+          badgeEl.innerHTML = isSharedFirst
+            ? '🏆 <span>공동 1위</span>'
+            : '🏆 <span>1위</span>';
           barEl.classList.add('leader');
         } else {
           badgeEl.style.display = 'none';

@@ -391,9 +391,16 @@ export class LunchVoteApp {
       pctEl.textContent = `${pct}%`;
       barEl.style.width = `${pct}%`;
 
-      // Dynamic top-rank badge (FR-2.2: 1st Place)
-      if (topItem && item.id === topItem) {
+      // Dynamic top-rank badge (FR-2.2: 1st Place / Co-First Place)
+      // topItem은 이제 배열: 단독이면 ['jeyuk'], 공동이면 ['jeyuk','jajang'] 등
+      const isTopItem = Array.isArray(topItem) && topItem.includes(item.id);
+      const isSharedFirst = Array.isArray(topItem) && topItem.length > 1;
+
+      if (isTopItem) {
         badgeEl.style.display = 'flex';
+        badgeEl.innerHTML = isSharedFirst
+          ? '🏆 <span>공동 1위</span>'
+          : '🏆 <span>1위</span>';
         barEl.classList.add('leader');
       } else {
         badgeEl.style.display = 'none';
