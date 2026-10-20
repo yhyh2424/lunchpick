@@ -38,9 +38,6 @@ export class LunchVoteApp {
       gasUrlInput: document.getElementById('gasUrlInput'),
       modeSelect: document.getElementById('modeSelect'),
       faultSelect: document.getElementById('faultSelect'),
-      qaModal: document.getElementById('qaModal'),
-      btnOpenQa: document.getElementById('btnOpenQa'),
-      btnCloseQa: document.getElementById('btnCloseQa')
     };
 
     this.init();
@@ -215,44 +212,8 @@ export class LunchVoteApp {
       });
     }
 
-    this.elements.settingsModal.addEventListener('click', (e) => {
-      if (e.target === this.elements.settingsModal) this.closeSettingsModal();
-    });
-    this.elements.qaModal.addEventListener('click', (e) => {
-      if (e.target === this.elements.qaModal) this.closeQaModal();
-    });
-
-    window.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        this.closeSettingsModal();
-        this.closeQaModal();
-      }
-    });
-
-    this.elements.btnOpenQa.addEventListener('click', () => this.openQaModal());
-    this.elements.btnCloseQa.addEventListener('click', () => this.closeQaModal());
   }
 
-    // Close modal on background click
-    this.elements.settingsModal.addEventListener('click', (e) => {
-      if (e.target === this.elements.settingsModal) this.closeSettingsModal();
-    });
-    this.elements.qaModal.addEventListener('click', (e) => {
-      if (e.target === this.elements.qaModal) this.closeQaModal();
-    });
-
-    // Keyboard navigation: Escape key closes modals
-    window.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        this.closeSettingsModal();
-        this.closeQaModal();
-      }
-    });
-
-    // QA Matrix Modal
-    this.elements.btnOpenQa.addEventListener('click', () => this.openQaModal());
-    this.elements.btnCloseQa.addEventListener('click', () => this.closeQaModal());
-  }
 
   // =========================================================================
   // Atomic Vote Submission & Transactional Rollback (SRS-FR-002 & SRS-FR-005)
@@ -513,20 +474,6 @@ export class LunchVoteApp {
     this.reconcileServerState(true);
   }
 
-  // =========================================================================
-  // QA Verification Matrix Modal (ISO/IEC/IEEE 29119)
-  // =========================================================================
-
-  openQaModal() {
-    this.elements.qaModal.classList.add('open');
-    if (window.qaTestRunner) {
-      window.qaTestRunner.renderInitialTestList();
-    }
-  }
-
-  closeQaModal() {
-    this.elements.qaModal.classList.remove('open');
-  }
 }
 
 // Instantiate on DOM ready
