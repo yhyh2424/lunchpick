@@ -31,11 +31,6 @@
       </div>
 
       <nav class="header-actions" aria-label="상단 메뉴">
-        <!-- QA Test Suite Trigger (ISO/IEC/IEEE 29119) -->
-        <button id="btnOpenQa" class="btn-touch" type="button" aria-haspopup="dialog" title="ISO/IEC/IEEE 29119 QA 검증 매트릭스">
-          🧪 <span>QA 검증</span>
-        </button>
-
         <!-- Settings / GAS Config Button -->
         <button id="btnOpenSettings" class="btn-touch" type="button" aria-haspopup="dialog" title="연동 설정 및 시뮬레이터">
           ⚙️ <span>설정</span>
@@ -77,7 +72,7 @@
       </section>
 
       <!-- 4 Fixed Menu Cards Grid (PRD FR-1.1 & US-01) -->
-      <section aria-label="투표 가능한 점심 메뉴 목록" style="margin-top: 20px;">
+      <section aria-label="투표 가능한 점심 메뉴 목록" style="margin-top: 10px;">
         <div class="menu-grid" id="menuGrid" role="radiogroup" aria-label="점심 메뉴 4개 선택지">
           <!-- Dynamic Menu Cards Rendered by app.js -->
         </div>
@@ -103,7 +98,6 @@
       <div class="compliance-tags" aria-label="준수 표준">
         <span class="compliance-tag">IEEE Std 830-1998</span>
         <span class="compliance-tag">ISO/IEC/IEEE 29148</span>
-        <span class="compliance-tag">ISO/IEC/IEEE 29119 QA</span>
         <span class="compliance-tag">WCAG 2.1 AA A11y</span>
       </div>
     </footer>
@@ -151,12 +145,12 @@
           <span class="form-help">특정 에러 상황을 주입하여 트랜잭션 롤백 및 방어 코드가 올바르게 동작하는지 확인합니다.</span>
         </div>
 
-        <div class="form-group" style="padding-top: 10px; border-top: 1px dashed var(--color-surface-border);">
+        <div class="form-group" style="padding-top: 5px; border-top: 1px dashed var(--color-surface-border);">
           <label class="form-label">테스트용 투표 및 집계 초기화</label>
           <button type="button" class="btn-touch" id="btnResetVote" style="color: var(--color-error); border-color: rgba(185, 28, 28, 0.3);">
             🔄 내 오늘 투표 기록 초기화
           </button>
-          <button type="button" class="btn-touch" id="btnResetTallies" style="color: var(--color-primary); border-color: rgba(208, 74, 55, 0.3); margin-top: 8px;">
+          <button type="button" class="btn-touch" id="btnResetTallies" style="color: var(--color-primary); border-color: rgba(208, 74, 55, 0.3); margin-top: 5px;">
             📊 모든 메뉴 득표수 0표로 초기화 (서버/로컬 동기화)
           </button>
           <span class="form-help">매일 KST 자정(00:00)에 모든 메뉴의 득표수는 자동으로 0표로 리셋됩니다.</span>
@@ -165,35 +159,6 @@
       <div class="modal-footer">
         <button type="button" class="btn-touch" id="btnSaveSettings" style="background-color: var(--color-primary); color: #FFFFFF; border: none;">
           설정 저장 및 적용
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- QA Verification Matrix Modal (ISO/IEC/IEEE 29119) -->
-  <div class="modal-overlay" id="qaModal" role="dialog" aria-modal="true" aria-labelledby="qaModalTitle">
-    <div class="modal-dialog">
-      <div class="modal-header">
-        <h3 id="qaModalTitle">🧪 ISO/IEC/IEEE 29119 QA 검증 매트릭스</h3>
-        <button type="button" class="icon-btn" id="btnCloseQa" aria-label="QA 검증 창 닫기">✕</button>
-      </div>
-      <div class="modal-body">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <p id="qaSummary" style="font-size: 0.85rem; color: var(--color-text-muted);">
-            SRS v4.0 문서의 6대 핵심 테스트 케이스를 자동 검증합니다.
-          </p>
-          <button type="button" class="btn-touch" id="btnRunAllQa" style="background-color: var(--color-primary); color: #FFFFFF; border: none;">
-            ▶ 전체 테스트 실행
-          </button>
-        </div>
-
-        <div class="qa-test-list" id="qaTestContainer">
-          <!-- Populated by qa-tests.js -->
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn-touch" onclick="document.getElementById('qaModal').classList.remove('open')">
-          닫기
         </button>
       </div>
     </div>
