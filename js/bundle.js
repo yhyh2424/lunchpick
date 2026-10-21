@@ -26,7 +26,7 @@
         id: 'jeyuk',
         title: '제육볶음',
         subtitle: 'Jeyuk Bokkeum',
-        desc: '매콤달콤 불맛 가득 든든한 직장인 소울푸드',
+        desc: '매콤달콤 불맛 가득 든든한 한식',
         image: 'images/jeyuk.jpg',
         emoji: '🥩',
         calories: '680 kcal'
